@@ -1,98 +1,172 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState } from "react";
+import {
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+interface Transaksi {
+  id: string;
+  ket: string;
+  nominal: number;
+  tipe: "masuk" | "keluar";
+}
 
-export default function HomeScreen() {
+export default function ExpenseTrackerScreen() {
+  // --- LOGIKA STATE ---
+  const [transaksi, setTransaksi] = useState<Transaksi[]>([]); // Definisikan tipe array Transaksi
+  const [deskripsi, setDeskripsi] = useState(""); // State untuk input teks
+  const [nominal, setNominal] = useState(""); // State untuk input angka
+
+  // --- LOGIKA HITUNG SALDO ---
+  const totalSaldo = transaksi.reduce((acc, curr) => {
+    return curr.tipe === "masuk" ? acc + curr.nominal : acc - curr.nominal;
+  }, 0);
+
+  // --- FUNGSI TAMBAH DATA ---
+  const tambahTransaksi = (tipe: "masuk" | "keluar") => {
+    if (deskripsi.trim() === "" || nominal.trim() === "") {
+      Alert.alert("Peringatan", "Harap isi deskripsi dan nominal!");
+      return;
+    }
+
+    const itemBaru: Transaksi = {
+      id: Date.now().toString(),
+      ket: deskripsi,
+      nominal: parseInt(nominal) || 0,
+      tipe: tipe,
+    };
+
+    setTransaksi([...transaksi, itemBaru]);
+    setDeskripsi("");
+    setNominal("");
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        {/* 1. HEADER SALDO */}
+        <View style={styles.headerCard}>
+          <Text style={styles.headerLabel}>Total Saldo Saat Ini</Text>
+          <Text style={styles.saldoValue}>
+            Rp {totalSaldo.toLocaleString()}
+          </Text>
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        {/* 2. FORM INPUT */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Text style={styles.sectionTitle}>Tambah Transaksi</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Deskripsi (ex: Uang Saku)"
+            value={deskripsi}
+            onChangeText={setDeskripsi}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Nominal (ex: 50000)"
+            keyboardType="numeric"
+            value={nominal}
+            onChangeText={setNominal}
+          />
+
+          <View style={styles.row}>
+            <TouchableOpacity
+              style={[styles.btn, styles.btnMasuk]}
+              onPress={() => tambahTransaksi("masuk")}
+            >
+              <Text style={styles.btnText}>Pemasukan</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.btn, styles.btnKeluar]}
+              onPress={() => tambahTransaksi("keluar")}
+            >
+              <Text style={styles.btnText}>Pengeluaran</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+
+        {/* 3. LIST HISTORY */}
+        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Riwayat</Text>
+        <FlatList
+          data={transaksi}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.historyCard}>
+              <Text style={styles.txtKet}>{item.ket}</Text>
+              {/* CONDITIONAL STYLING: Hijau jika masuk, Merah jika keluar */}
+              <Text
+                style={[
+                  styles.txtNominal,
+                  { color: item.tipe === "masuk" ? "#27ae60" : "#e74c3c" },
+                ]}
+              >
+                {item.tipe === "masuk" ? "+" : "-"} Rp{" "}
+                {item.nominal.toLocaleString()}
+              </Text>
+            </View>
+          )}
+          ListEmptyComponent={
+            <Text style={styles.emptyTxt}>Belum ada riwayat transaksi.</Text>
+          }
+        />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  safeArea: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, padding: 20 },
+  headerCard: {
+    backgroundColor: "#34495e",
+    padding: 25,
+    borderRadius: 15,
+    alignItems: "center",
+    marginBottom: 25,
+    elevation: 5,
   },
-  stepContainer: {
-    gap: 8,
+  headerLabel: { color: "#bdc3c7", fontSize: 14, marginBottom: 5 },
+  saldoValue: { color: "#fff", fontSize: 32, fontWeight: "bold" },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#2c3e50",
+  },
+  input: {
+    backgroundColor: "#ecf0f1",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    fontSize: 16,
+  },
+  row: { flexDirection: "row", justifyContent: "space-between" },
+  btn: { flex: 0.48, padding: 15, borderRadius: 10, alignItems: "center" },
+  btnMasuk: { backgroundColor: "#27ae60" },
+  btnKeluar: { backgroundColor: "#e74c3c" },
+  btnText: { color: "#fff", fontWeight: "bold" },
+  historyCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    padding: 15,
+    backgroundColor: "#fff",
+    borderRadius: 10,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#f1f2f6",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  txtKet: { fontSize: 16, color: "#2c3e50" },
+  txtNominal: { fontSize: 16, fontWeight: "bold" },
+  emptyTxt: { textAlign: "center", marginTop: 20, color: "#95a5a6" },
 });
